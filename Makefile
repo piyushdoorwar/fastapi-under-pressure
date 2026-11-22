@@ -7,7 +7,7 @@ seed:
 	$(PY) -m secondloop.seed
 
 api:
-	uvicorn secondloop.main:app --port 8000
+	uvicorn secondloop.main:app --port 8000 --no-access-log
 
 partner:
 	uvicorn fakes.parcelpath:app --port 8081

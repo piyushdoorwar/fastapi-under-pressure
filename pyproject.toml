@@ -12,6 +12,8 @@ dependencies = [
     "asyncpg==0.32.0",
     "httpx2==2.16.2",
     "requests==2.34.2",
+    "structlog==26.1.0",
+    "prometheus-client==0.26.0",
 ]
 
 [project.optional-dependencies]
