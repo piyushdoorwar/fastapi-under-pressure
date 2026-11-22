@@ -1,9 +1,14 @@
-"""ParcelPath rate client, adapted from the
-partner's quick-start sample."""
+"""ParcelPath rate client.
+
+One AsyncClient is created at startup and shared by
+every request, so connections to ParcelPath are
+reused and nothing here blocks the event loop.
+"""
 
 from dataclasses import dataclass
 
-import requests
+import httpx2
+from fastapi import Request
 
 from secondloop.settings import settings
 
@@ -16,27 +21,30 @@ class Rate:
 
 
 class ParcelPathClient:
-    def __init__(self, base_url: str, timeout: float):
-        self.base_url = base_url
-        self.timeout = timeout
-        self.http = requests.Session()
+    def __init__(self, http: httpx2.AsyncClient):
+        self.http = http
 
-    def get_rate(
+    async def get_rate(
         self, weight_grams: int, postcode: str
     ) -> Rate:
-        resp = self.http.post(
-            f"{self.base_url}/v1/rates",
+        resp = await self.http.post(
+            "/v1/rates",
             json={
                 "weight_grams": weight_grams,
                 "postcode": postcode,
             },
-            timeout=self.timeout,
         )
         resp.raise_for_status()
         return Rate(**resp.json())
 
 
-parcelpath = ParcelPathClient(
-    settings.parcelpath_url,
-    settings.parcelpath_timeout_s,
-)
+def make_http() -> httpx2.AsyncClient:
+    return httpx2.AsyncClient(
+        base_url=settings.parcelpath_url,
+        timeout=settings.parcelpath_timeout_s,
+        limits=httpx2.Limits(max_connections=100),
+    )
+
+
+def get_parcelpath(request: Request) -> ParcelPathClient:
+    return request.app.state.parcelpath

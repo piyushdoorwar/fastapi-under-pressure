@@ -12,7 +12,7 @@ exactly as the chapter shows it.
 | `ch01` | The service as the book opens; checkout times out under load |
 | `ch02` | Logs, metrics and the event-loop lag monitor added |
 | `ch03-broken` | Same as `ch02`, plus the chapter 3 tests (one fails) |
-| `ch03-fixed` | The blocking partner call replaced; all tests pass |
+| `ch03-fixed` | ParcelPath called through a shared async client; all tests pass |
 
 ## Run it locally
 

@@ -16,7 +16,7 @@ import uvicorn
 from secondloop.main import create_app
 from secondloop.partners.parcelpath import (
     Rate,
-    parcelpath,
+    get_parcelpath,
 )
 from secondloop.seed import seed
 
@@ -26,17 +26,23 @@ async def database():
     await seed()
 
 
-@pytest.fixture
-def fixed_rate(monkeypatch):
-    def fake(weight_grams, postcode):
+class FixedRate:
+    async def get_rate(self, weight_grams, postcode):
         return Rate("ground", 949, 3)
 
-    monkeypatch.setattr(parcelpath, "get_rate", fake)
+
+@pytest.fixture
+def app():
+    return create_app()
 
 
 @pytest.fixture
-async def client():
-    app = create_app()
+def fixed_rate(app):
+    app.dependency_overrides[get_parcelpath] = FixedRate
+
+
+@pytest.fixture
+async def client(app):
     transport = httpx2.ASGITransport(app=app)
     async with (
         app.router.lifespan_context(app),

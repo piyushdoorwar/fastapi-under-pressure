@@ -8,10 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from secondloop.db import get_session
 from secondloop.models import Product
-from secondloop.partners.parcelpath import parcelpath
+from secondloop.partners.parcelpath import (
+    ParcelPathClient,
+    get_parcelpath,
+)
 
 router = APIRouter()
 DB = Annotated[AsyncSession, Depends(get_session)]
+ParcelPath = Annotated[
+    ParcelPathClient, Depends(get_parcelpath)
+]
 
 
 class Line(BaseModel):
@@ -33,7 +39,9 @@ class QuoteOut(BaseModel):
 
 
 @router.post("/checkout/quote")
-async def quote(body: QuoteIn, db: DB) -> QuoteOut:
+async def quote(
+    body: QuoteIn, db: DB, parcelpath: ParcelPath
+) -> QuoteOut:
     skus = [line.sku for line in body.lines]
     rows = await db.scalars(
         select(Product).where(Product.sku.in_(skus))
@@ -51,7 +59,9 @@ async def quote(body: QuoteIn, db: DB) -> QuoteOut:
         subtotal += p.price_cents * line.qty
         weight += p.weight_grams * line.qty
 
-    rate = parcelpath.get_rate(weight, body.postcode)
+    rate = await parcelpath.get_rate(
+        weight, body.postcode
+    )
     return QuoteOut(
         quote_id=uuid4().hex[:12],
         subtotal_cents=subtotal,
