@@ -9,18 +9,33 @@ The order of the steps is the point of this module:
    whole transaction rolls back and nothing has
    happened.
 3. Only after the commit, tell the customer.
+
+A request with an Idempotency-Key that has already
+made an order gets that order back (chapter 10).
 """
 
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Response,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from secondloop.db import get_session
+from secondloop.idempotency import (
+    claim,
+    find,
+    fingerprint,
+    link,
+)
 from secondloop.models import (
     ORDER_NUMBERS,
     Order,
@@ -49,6 +64,11 @@ ParcelPath = Annotated[
     ParcelPathClient, Depends(get_parcelpath)
 ]
 Mail = Annotated[Mailer, Depends(get_mailer)]
+Key = Annotated[
+    str | None,
+    Header(alias="Idempotency-Key", min_length=8,
+           max_length=100),
+]
 
 
 class OrderIn(BaseModel):
@@ -68,14 +88,39 @@ def out_of_stock(sku: str) -> HTTPException:
     return HTTPException(409, f"not enough stock: {sku}")
 
 
+class AlreadyPlaced(Exception):
+    """Another request with this key made the order."""
+
+
+def replay(response: Response, order: Order) -> OrderOut:
+    log.info("order_replayed", order=order.number)
+    response.headers["Idempotent-Replayed"] = "true"
+    return OrderOut(
+        number=order.number,
+        total_cents=order.total_cents,
+        shipping_estimated=order.shipping_estimated,
+        confirmation_sent=(
+            order.confirmation_sent_at is not None
+        ),
+    )
+
+
 @router.post("/orders", status_code=201)
 async def place_order(
     body: OrderIn,
     db: DB,
     parcelpath: ParcelPath,
     mailer: Mail,
+    response: Response,
+    key: Key = None,
 ) -> OrderOut:
     skus = [line.sku for line in body.lines]
+    digest = fingerprint(body)
+    if key:
+        async with db.begin():
+            done = await find(db, key, digest)
+        if done:
+            return replay(response, done)
 
     # 1. Read, then talk to ParcelPath outside any
     #    transaction.
@@ -101,9 +146,17 @@ async def place_order(
     # 2. One transaction: take the stock, save the order.
     try:
         async with db.begin():
+            if key and not await claim(db, key, digest):
+                raise AlreadyPlaced
             order = await save_order(
-                db, body, products, rate
+                db, body, products, rate, estimated
             )
+            if key:
+                await link(db, key, order)
+    except AlreadyPlaced:
+        async with db.begin():
+            done = await find(db, key, digest)
+        return replay(response, done)
     except IntegrityError as exc:
         if "stock_not_negative" in str(exc.orig):
             raise out_of_stock(skus[0]) from exc
@@ -119,10 +172,13 @@ async def place_order(
     )
 
 
-async def save_order(db, body, products, rate) -> Order:
+async def save_order(
+    db, body, products, rate, estimated
+) -> Order:
     seq = await db.scalar(ORDER_NUMBERS.next_value())
     order = Order(number=f"SL-{seq}", email=body.email,
-                  postcode=body.postcode)
+                  postcode=body.postcode,
+                  shipping_estimated=estimated)
     subtotal = 0
     # Lock stock rows in one order (by SKU) in every
     # transaction, so two carts can't wait on each other.

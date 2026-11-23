@@ -75,6 +75,9 @@ class Order(Base):
     subtotal_cents: Mapped[int]
     shipping_cents: Mapped[int]
     total_cents: Mapped[int]
+    shipping_estimated: Mapped[bool] = mapped_column(
+        default=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()
     )
@@ -96,3 +99,20 @@ class OrderLine(Base):
     warehouse: Mapped[str] = mapped_column(String(20))
     qty: Mapped[int]
     price_cents: Mapped[int]
+
+
+class IdempotencyKey(Base):
+    """Which order a client's Idempotency-Key made."""
+
+    __tablename__ = "idempotency_keys"
+
+    key: Mapped[str] = mapped_column(
+        String(100), primary_key=True
+    )
+    request_hash: Mapped[str] = mapped_column(String(64))
+    order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("orders.id")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
