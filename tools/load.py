@@ -64,17 +64,19 @@ def pct(values, p):
 
 def report(results, seconds):
     print(f"{'route':<21}{'reqs':>5}{'p50':>6}"
-          f"{'p95':>6}{'p99':>6}{'max':>6}{'t/o':>5}")
+          f"{'p95':>6}{'p99':>6}{'max':>6}{'t/o':>4}"
+          f"{'err':>4}")
     for name, rows in sorted(results.items()):
         ms = [m for m, _ in rows]
         timeouts = sum(1 for _, ok in rows if ok is None)
+        errors = sum(1 for _, ok in rows if ok is False)
         print(f"{name:<21}{len(rows):>5}"
               f"{pct(ms, 50):>6.0f}{pct(ms, 95):>6.0f}"
               f"{pct(ms, 99):>6.0f}{max(ms):>6.0f}"
-              f"{timeouts:>5}")
+              f"{timeouts:>4}{errors:>4}")
     total = sum(len(r) for r in results.values())
     print(f"throughput: {total / seconds:.1f} req/s"
-          "  (times in ms)")
+          "  (times in ms; err = 5xx or failed)")
 
 
 async def main(args):

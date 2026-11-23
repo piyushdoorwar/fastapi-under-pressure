@@ -19,13 +19,17 @@ class ProductOut(BaseModel):
     name: str
     price_cents: int
     in_stock: bool
+    ships_from: list[str]
 
 
-def to_out(p: Product) -> ProductOut:
+async def to_out(p: Product) -> ProductOut:
+    levels = await p.awaitable_attrs.stock_levels
+    ships_from = [s.warehouse for s in levels if s.qty]
     return ProductOut(
         sku=p.sku, name=p.name,
         price_cents=p.price_cents,
-        in_stock=p.stock > 0,
+        in_stock=bool(ships_from),
+        ships_from=ships_from,
     )
 
 
@@ -34,7 +38,7 @@ async def list_products(db: DB) -> list[ProductOut]:
     rows = await db.scalars(
         select(Product).order_by(Product.sku)
     )
-    return [to_out(p) for p in rows]
+    return [await to_out(p) for p in rows]
 
 
 @router.get("/products/{sku}")
@@ -42,4 +46,4 @@ async def get_product(sku: str, db: DB) -> ProductOut:
     product = await db.get(Product, sku)
     if product is None:
         raise HTTPException(404, "unknown sku")
-    return to_out(product)
+    return await to_out(product)

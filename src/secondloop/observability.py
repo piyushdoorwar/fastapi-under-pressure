@@ -5,6 +5,7 @@ import asyncio
 import logging
 import time
 import uuid
+from contextvars import ContextVar
 
 import structlog
 from fastapi import FastAPI, Request, Response
@@ -53,6 +54,17 @@ POOL_HOLD_SECONDS = Histogram(
              .5, 1, 2, 5),
 )
 HOLD_WARN = 0.5  # log when a connection is held longer
+QUERIES_PER_REQUEST = Histogram(
+    "db_queries_per_request",
+    "SQL statements sent while handling a request",
+    ["route"],
+    buckets=(1, 2, 3, 5, 10, 25, 100, 500, 2500),
+)
+# A one-item list per request, so code running in
+# child tasks can add to the same count.
+QUERY_COUNT: ContextVar[list[int] | None] = ContextVar(
+    "query_count", default=None
+)
 
 LAG_INTERVAL = 0.05   # seconds between ticks
 LAG_WARN = 0.1        # log when a tick is this late
@@ -99,6 +111,24 @@ def watch_pool(engine: AsyncEngine) -> None:
         event.listen(pool, "checkin", on_checkin)
 
 
+def on_execute(conn, cursor, statement, params,
+               context, executemany):
+    count = QUERY_COUNT.get()
+    if count is not None:
+        count[0] += 1
+
+
+def watch_queries(engine: AsyncEngine) -> None:
+    """Count SQL statements per request."""
+    sync = engine.sync_engine
+    if not event.contains(
+        sync, "before_cursor_execute", on_execute
+    ):
+        event.listen(
+            sync, "before_cursor_execute", on_execute
+        )
+
+
 def route_of(request: Request) -> str:
     route = request.scope.get("route")
     return getattr(route, "path", "unmatched")
@@ -115,6 +145,8 @@ def instrument(app: FastAPI) -> None:
             request_id=request_id,
             path=request.url.path,
         )
+        queries = [0]
+        QUERY_COUNT.set(queries)
         start = time.perf_counter()
         status = 500
         try:
@@ -128,12 +160,16 @@ def instrument(app: FastAPI) -> None:
             REQUEST_SECONDS.labels(
                 request.method, route, status
             ).observe(seconds)
+            QUERIES_PER_REQUEST.labels(route).observe(
+                queries[0]
+            )
             log.info(
                 "request",
                 method=request.method,
                 route=route,
                 status=status,
                 ms=round(seconds * 1000, 1),
+                queries=queries[0],
             )
             structlog.contextvars.clear_contextvars()
 

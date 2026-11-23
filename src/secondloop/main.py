@@ -10,6 +10,7 @@ from secondloop.observability import (
     instrument,
     watch_event_loop,
     watch_pool,
+    watch_queries,
 )
 from secondloop.partners.parcelpath import (
     ParcelPathClient,
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     )
     instrument(app)
     watch_pool(engine)
+    watch_queries(engine)
     app.include_router(catalog.router)
     app.include_router(checkout.router)
 

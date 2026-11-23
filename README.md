@@ -15,6 +15,8 @@ exactly as the chapter shows it.
 | `ch03-fixed` | ParcelPath called through a shared async client; all tests pass |
 | `ch04-broken` | Pool metrics added, plus the chapter 4 tests (two fail) |
 | `ch04-fixed` | Short transaction before the partner call; full pool fails fast with 503 |
+| `ch05-broken` | 2,000-product catalogue with warehouse stock; query counter; chapter 5 tests (two fail) |
+| `ch05-fixed` | Stock loaded with `selectinload`; keyset pagination |
 
 ## Run it locally
 

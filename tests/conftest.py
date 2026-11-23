@@ -20,10 +20,12 @@ from secondloop.partners.parcelpath import (
 )
 from secondloop.seed import seed
 
+TEST_CATALOGUE = 20  # production has 2,000
+
 
 @pytest.fixture(scope="session", autouse=True)
 async def database():
-    await seed()
+    await seed(TEST_CATALOGUE)
 
 
 class FixedRate:

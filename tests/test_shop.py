@@ -10,7 +10,7 @@ CART = {
 async def test_lists_products(client):
     resp = await client.get("/products")
     assert resp.status_code == 200
-    assert len(resp.json()) == 6
+    assert len(resp.json()) == 20
 
 
 async def test_unknown_product_is_404(client):
