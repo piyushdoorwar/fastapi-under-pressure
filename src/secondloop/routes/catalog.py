@@ -1,9 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+)
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from secondloop.db import get_session
 from secondloop.models import Product
@@ -22,9 +29,13 @@ class ProductOut(BaseModel):
     ships_from: list[str]
 
 
-async def to_out(p: Product) -> ProductOut:
-    levels = await p.awaitable_attrs.stock_levels
-    ships_from = [s.warehouse for s in levels if s.qty]
+WITH_STOCK = selectinload(Product.stock_levels)
+
+
+def to_out(p: Product) -> ProductOut:
+    ships_from = [
+        s.warehouse for s in p.stock_levels if s.qty
+    ]
     return ProductOut(
         sku=p.sku, name=p.name,
         price_cents=p.price_cents,
@@ -34,16 +45,31 @@ async def to_out(p: Product) -> ProductOut:
 
 
 @router.get("/products")
-async def list_products(db: DB) -> list[ProductOut]:
-    rows = await db.scalars(
-        select(Product).order_by(Product.sku)
+async def list_products(
+    db: DB,
+    response: Response,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    after: str | None = None,
+) -> list[ProductOut]:
+    query = (
+        select(Product)
+        .options(WITH_STOCK)
+        .order_by(Product.sku)
+        .limit(limit)
     )
-    return [await to_out(p) for p in rows]
+    if after is not None:
+        query = query.where(Product.sku > after)
+    page = [to_out(p) for p in await db.scalars(query)]
+    if len(page) == limit:
+        response.headers["x-next-after"] = page[-1].sku
+    return page
 
 
 @router.get("/products/{sku}")
 async def get_product(sku: str, db: DB) -> ProductOut:
-    product = await db.get(Product, sku)
+    product = await db.get(
+        Product, sku, options=[WITH_STOCK]
+    )
     if product is None:
         raise HTTPException(404, "unknown sku")
-    return await to_out(product)
+    return to_out(product)

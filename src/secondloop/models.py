@@ -25,6 +25,7 @@ class Product(Base):
         relationship(
             back_populates="product",
             order_by="StockLevel.warehouse",
+            lazy="raise_on_sql",
         )
     )
 
