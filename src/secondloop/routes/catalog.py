@@ -9,7 +9,9 @@ from secondloop.db import get_session
 from secondloop.models import Product
 
 router = APIRouter()
-DB = Annotated[AsyncSession, Depends(get_session)]
+DB = Annotated[
+    AsyncSession, Depends(get_session, scope="function")
+]
 
 
 class ProductOut(BaseModel):

@@ -1,7 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from secondloop.db import engine
 from secondloop.observability import (
@@ -33,6 +35,14 @@ def create_app() -> FastAPI:
     watch_pool(engine)
     app.include_router(catalog.router)
     app.include_router(checkout.router)
+
+    @app.exception_handler(PoolTimeout)
+    async def pool_busy(request: Request, exc: PoolTimeout):
+        return JSONResponse(
+            {"detail": "busy, try again"},
+            status_code=503,
+            headers={"Retry-After": "1"},
+        )
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

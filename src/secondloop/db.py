@@ -10,8 +10,9 @@ from secondloop.settings import settings
 
 engine = create_async_engine(
     settings.database_url,
-    pool_size=10,
+    pool_size=settings.db_pool_size,
     max_overflow=0,
+    pool_timeout=settings.db_pool_timeout_s,
 )
 Session = async_sessionmaker(
     engine, expire_on_commit=False

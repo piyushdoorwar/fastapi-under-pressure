@@ -14,7 +14,9 @@ from secondloop.partners.parcelpath import (
 )
 
 router = APIRouter()
-DB = Annotated[AsyncSession, Depends(get_session)]
+DB = Annotated[
+    AsyncSession, Depends(get_session, scope="function")
+]
 ParcelPath = Annotated[
     ParcelPathClient, Depends(get_parcelpath)
 ]
@@ -43,10 +45,13 @@ async def quote(
     body: QuoteIn, db: DB, parcelpath: ParcelPath
 ) -> QuoteOut:
     skus = [line.sku for line in body.lines]
-    rows = await db.scalars(
-        select(Product).where(Product.sku.in_(skus))
-    )
-    products = {p.sku: p for p in rows}
+    async with db.begin():
+        rows = await db.scalars(
+            select(Product).where(Product.sku.in_(skus))
+        )
+        products = {p.sku: p for p in rows}
+    # The transaction is over and the connection is
+    # back in the pool before we call ParcelPath.
     missing = set(skus) - products.keys()
     if missing:
         raise HTTPException(
