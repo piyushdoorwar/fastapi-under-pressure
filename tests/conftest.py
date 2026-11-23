@@ -122,7 +122,10 @@ async def inbox(mail_server, slow_partner):
                     "/_fake/mode", json={"status": status}
                 )
 
+            async def slow(self, ms):
+                await mail.put(
+                    "/_fake/mode", json={"delay_ms": ms}
+                )
+
         yield Inbox()
-        await mail.put(
-            "/_fake/mode", json={"status": 202}
-        )
+        await mail.put("/_fake/mode", json={})

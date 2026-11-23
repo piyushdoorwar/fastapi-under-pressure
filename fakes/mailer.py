@@ -7,8 +7,10 @@ emails the shop API sent.
     GET    /v1/messages?to=...   list messages
     DELETE /v1/messages          forget them all
     PUT    /_fake/mode           {"status": 503}
+    PUT    /_fake/mode           {"delay_ms": 1900}
 """
 
+import asyncio
 import itertools
 
 from fastapi import FastAPI
@@ -16,7 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 MESSAGES: list[dict] = []
-MODE = {"status": 202}
+MODE = {"status": 202, "delay_ms": 0}
 IDS = itertools.count(1)
 
 app = FastAPI(title="Mailer (fake)")
@@ -29,11 +31,13 @@ class MessageIn(BaseModel):
 
 
 class ModeIn(BaseModel):
-    status: int
+    status: int = 202
+    delay_ms: int = 0
 
 
 @app.post("/v1/messages")
 async def send(msg: MessageIn):
+    await asyncio.sleep(MODE["delay_ms"] / 1000)
     if MODE["status"] != 202:
         return JSONResponse(
             {"error": "unavailable"},
