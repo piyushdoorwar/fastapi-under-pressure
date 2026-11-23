@@ -17,6 +17,8 @@ exactly as the chapter shows it.
 | `ch04-fixed` | Short transaction before the partner call; full pool fails fast with 503 |
 | `ch05-broken` | 2,000-product catalogue with warehouse stock; query counter; chapter 5 tests (two fail) |
 | `ch05-fixed` | Stock loaded with `selectinload`; keyset pagination |
+| `ch06-broken` | Fake ParcelPath can be made slow or failing at runtime; chapter 6 tests (four fail) |
+| `ch06-fixed` | Time budget, fallback shipping estimate and circuit breaker for ParcelPath |
 
 ## Run it locally
 
