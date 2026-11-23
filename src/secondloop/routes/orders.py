@@ -124,18 +124,15 @@ async def save_order(db, body, products, rate) -> Order:
     order = Order(number=f"SL-{seq}", email=body.email,
                   postcode=body.postcode)
     subtotal = 0
-    for line in body.lines:
+    # Lock stock rows in one order (by SKU) in every
+    # transaction, so two carts can't wait on each other.
+    for line in sorted(body.lines, key=lambda ln: ln.sku):
         product = products[line.sku]
-        levels = await db.scalars(
-            select(StockLevel)
-            .where(StockLevel.sku == line.sku)
+        warehouse = await take_stock(
+            db, line.sku, line.qty
         )
-        level = max(levels, key=lambda s: s.qty)
-        if level.qty < line.qty:
-            raise out_of_stock(line.sku)
-        level.qty -= line.qty
         order.lines.append(OrderLine(
-            sku=line.sku, warehouse=level.warehouse,
+            sku=line.sku, warehouse=warehouse,
             qty=line.qty, price_cents=product.price_cents,
         ))
         subtotal += product.price_cents * line.qty
@@ -144,6 +141,30 @@ async def save_order(db, body, products, rate) -> Order:
     order.total_cents = subtotal + rate.amount_cents
     db.add(order)
     return order
+
+
+async def take_stock(db, sku: str, qty: int) -> str:
+    """Take qty units of sku from the warehouse with the
+    most, checking and writing in one statement. Return
+    the warehouse, or raise a 409."""
+    candidates = await db.scalars(
+        select(StockLevel.warehouse)
+        .where(StockLevel.sku == sku,
+               StockLevel.qty >= qty)
+        .order_by(StockLevel.qty.desc())
+    )
+    for warehouse in candidates.all():
+        taken = await db.scalar(
+            update(StockLevel)
+            .where(StockLevel.sku == sku,
+                   StockLevel.warehouse == warehouse,
+                   StockLevel.qty >= qty)
+            .values(qty=StockLevel.qty - qty)
+            .returning(StockLevel.warehouse)
+        )
+        if taken is not None:
+            return taken
+    raise out_of_stock(sku)
 
 
 async def confirm(db, mailer, order: Order) -> bool:
