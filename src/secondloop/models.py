@@ -78,6 +78,7 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()
     )
+    confirmation_sent_at: Mapped[datetime | None]
     lines: Mapped[list["OrderLine"]] = relationship(
         lazy="raise_on_sql"
     )
