@@ -16,7 +16,7 @@ from secondloop.partners.parcelpath import (
     make_client,
     make_http,
 )
-from secondloop.routes import catalog, checkout
+from secondloop.routes import catalog, checkout, search
 
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
     watch_queries(engine)
     app.include_router(catalog.router)
     app.include_router(checkout.router)
+    app.include_router(search.router)
 
     @app.exception_handler(PoolTimeout)
     async def pool_busy(request: Request, exc: PoolTimeout):

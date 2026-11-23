@@ -19,6 +19,8 @@ exactly as the chapter shows it.
 | `ch05-fixed` | Stock loaded with `selectinload`; keyset pagination |
 | `ch06-broken` | Fake ParcelPath can be made slow or failing at runtime; chapter 6 tests (four fail) |
 | `ch06-fixed` | Time budget, fallback shipping estimate and circuit breaker for ParcelPath |
+| `ch07-broken` | Product search with an in-memory cache; memory tools; chapter 7 tests (three fail) |
+| `ch07-fixed` | Search cache keyed on the query, with a size limit and a time limit |
 
 ## Run it locally
 
