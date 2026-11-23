@@ -9,12 +9,19 @@ usually nothing at all.
 
 import asyncio
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Literal
 
 import httpx2
 import structlog
 from fastapi import Request
 from prometheus_client import Counter, Gauge
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field,
+    TypeAdapter,
+    ValidationError,
+)
 
 from secondloop.partners.breaker import CircuitBreaker
 from secondloop.settings import settings
@@ -39,21 +46,51 @@ class Rate:
     eta_days: int
 
 
-class RateIn(BaseModel):
-    """A rate as ParcelPath sends it. ParcelPath v1.4
-    adds `amount`, in dollars, and drops `amount_cents`.
-    This reads both, so the switch needs no deploy."""
+class RateV13(BaseModel):
+    """ParcelPath's answer up to v1.3."""
 
     service: str
-    eta_days: int
-    amount_cents: int = 0  # gone in v1.4
-    amount: float | None = None  # new in v1.4
+    amount_cents: int = Field(ge=0)
+    eta_days: int = Field(ge=1, le=30)
 
     def to_rate(self) -> Rate:
-        cents = self.amount_cents
-        if self.amount is not None:
-            cents = int(self.amount * 100)
+        return Rate(
+            self.service, self.amount_cents, self.eta_days
+        )
+
+
+class Price(BaseModel):
+    amount: Decimal = Field(ge=0, decimal_places=2)
+    currency: Literal["USD"]
+
+
+class RateV14(BaseModel):
+    """ParcelPath's answer from v1.4 (23 November)."""
+
+    service: str
+    price: Price
+    eta_days: int = Field(ge=1, le=30)
+
+    def to_rate(self) -> Rate:
+        cents = int(self.price.amount * 100)
         return Rate(self.service, cents, self.eta_days)
+
+
+# Every field is required: an answer that is missing
+# one is not a rate, whatever else it contains.
+RATE = TypeAdapter(RateV14 | RateV13)
+
+
+class BadRate(ValueError):
+    """ParcelPath answered with something that isn't a
+    rate we understand."""
+
+
+def parse_rate(data: object) -> Rate:
+    try:
+        return RATE.validate_python(data).to_rate()
+    except ValidationError as exc:
+        raise BadRate(str(exc)) from exc
 
 
 class PartnerUnavailable(Exception):
@@ -87,9 +124,7 @@ class ParcelPathClient:
                     },
                 )
                 resp.raise_for_status()
-                rate = RateIn.model_validate(
-                    resp.json()
-                ).to_rate()
+                rate = parse_rate(resp.json())
         except (TimeoutError, httpx2.HTTPError) as exc:
             outcome = (
                 "timeout" if isinstance(exc, TimeoutError)
@@ -97,6 +132,12 @@ class ParcelPathClient:
             )
             self._failed(outcome)
             raise PartnerUnavailable(outcome) from exc
+        except ValueError as exc:
+            # BadRate, or a body that isn't JSON at all.
+            log.warning("parcelpath_bad_rate",
+                        error=str(exc)[:200])
+            self._failed("bad_rate")
+            raise PartnerUnavailable("bad_rate") from exc
         self._succeeded()
         return rate
 
