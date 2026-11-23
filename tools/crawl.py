@@ -50,7 +50,9 @@ async def main(args):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://localhost:8000")
+    ap.add_argument(
+        "--url", default="http://localhost:8000"
+    )
     ap.add_argument("--searches", type=int, default=20000)
     ap.add_argument("--workers", type=int, default=20)
     ap.add_argument("--seed", type=int, default=1)

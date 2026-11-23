@@ -11,11 +11,16 @@ services:
     environment:
       PARCELPATH_DELAY_MS: "180"
     ports: ["8081:8081"]
+  mailer:
+    build: .
+    command: uvicorn fakes.mailer:app --host 0.0.0.0 --port 8082
+    ports: ["8082:8082"]
   api:
     build: .
     command: uvicorn secondloop.main:app --host 0.0.0.0 --port 8000
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres@db/secondloop
       PARCELPATH_URL: http://partner:8081
+      MAILER_URL: http://mailer:8082
     ports: ["8000:8000"]
-    depends_on: [db, partner]
+    depends_on: [db, partner, mailer]

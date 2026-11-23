@@ -22,3 +22,10 @@ Session = async_sessionmaker(
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with Session() as session:
         yield session
+
+
+async def get_tx() -> AsyncIterator[AsyncSession]:
+    """One transaction per request: commit if the
+    handler returns, roll back if it raises."""
+    async with Session.begin() as session:
+        yield session

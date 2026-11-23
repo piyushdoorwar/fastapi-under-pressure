@@ -41,3 +41,7 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 58
 src = ["src"]
+
+[tool.ruff.lint]
+# Keep every line short enough for a printed page.
+extend-select = ["E501"]

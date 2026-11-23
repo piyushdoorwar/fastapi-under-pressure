@@ -95,7 +95,9 @@ async def main(args):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://localhost:8000")
+    ap.add_argument(
+        "--url", default="http://localhost:8000"
+    )
     ap.add_argument("--users", type=int, default=1)
     ap.add_argument("--seconds", type=int, default=20)
     asyncio.run(main(ap.parse_args()))

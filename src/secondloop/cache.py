@@ -34,7 +34,8 @@ class TTLCache[V]:
         return value
 
     def put(self, key: str, value: V) -> None:
-        self.data[key] = (self.clock() + self.ttl_s, value)
+        expires = self.clock() + self.ttl_s
+        self.data[key] = (expires, value)
         self.data.move_to_end(key)
         while len(self.data) > self.max_entries:
             self.data.popitem(last=False)  # oldest

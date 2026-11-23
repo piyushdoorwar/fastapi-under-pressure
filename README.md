@@ -21,6 +21,8 @@ exactly as the chapter shows it.
 | `ch06-fixed` | Time budget, fallback shipping estimate and circuit breaker for ParcelPath |
 | `ch07-broken` | Product search with an in-memory cache; memory tools; chapter 7 tests (three fail) |
 | `ch07-fixed` | Search cache keyed on the query, with a size limit and a time limit |
+| `ch08-broken` | Orders with a confirmation email; fake email provider; chapter 8 tests (two fail) |
+| `ch08-fixed` | Explicit transaction, stock check, email only after the commit |
 
 ## Run it locally
 
@@ -31,8 +33,9 @@ Python 3.13 and PostgreSQL 16 or later.
     createdb secondloop && createdb secondloop_test
     make seed
     make partner     # terminal 1
-    make api         # terminal 2
-    make load        # terminal 3
+    make mailer      # terminal 2 (from chapter 8)
+    make api         # terminal 3
+    make load        # terminal 4
 
 Or with Docker: `docker compose up --build`, then
 `docker compose exec api python -m secondloop.seed`.

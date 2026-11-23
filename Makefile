@@ -1,7 +1,7 @@
 # SecondLoop: FastAPI Under Pressure companion repo
 PY ?= python
 
-.PHONY: seed api partner load test lint
+.PHONY: seed api partner mailer load test lint
 
 seed:
 	$(PY) -m secondloop.seed
@@ -11,6 +11,9 @@ api:
 
 partner:
 	uvicorn fakes.parcelpath:app --port 8081
+
+mailer:
+	uvicorn fakes.mailer:app --port 8082
 
 load:
 	$(PY) tools/load.py --users $(or $(USERS),20) \

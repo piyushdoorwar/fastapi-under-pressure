@@ -25,8 +25,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 MODE = {
-    "delay_ms": int(os.getenv("PARCELPATH_DELAY_MS", "180")),
-    "jitter_ms": int(os.getenv("PARCELPATH_JITTER_MS", "40")),
+    "delay_ms": int(
+        os.getenv("PARCELPATH_DELAY_MS", "180")
+    ),
+    "jitter_ms": int(
+        os.getenv("PARCELPATH_JITTER_MS", "40")
+    ),
     "status": 200,
 }
 
@@ -49,7 +53,8 @@ async def rates(body: RateIn):
     jitter = random.uniform(
         -MODE["jitter_ms"], MODE["jitter_ms"]
     )
-    await asyncio.sleep((MODE["delay_ms"] + jitter) / 1000)
+    delay_ms = MODE["delay_ms"] + jitter
+    await asyncio.sleep(delay_ms / 1000)
     if MODE["status"] != 200:
         return JSONResponse(
             {"error": "rates unavailable"},

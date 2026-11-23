@@ -12,18 +12,31 @@ from secondloop.observability import (
     watch_pool,
     watch_queries,
 )
+from secondloop.partners.mailer import (
+    Mailer,
+    make_mailer_http,
+)
 from secondloop.partners.parcelpath import (
     make_client,
     make_http,
 )
-from secondloop.routes import catalog, checkout, search
+from secondloop.routes import (
+    catalog,
+    checkout,
+    orders,
+    search,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     watcher = asyncio.create_task(watch_event_loop())
-    async with make_http() as http:
+    async with (
+        make_http() as http,
+        make_mailer_http() as mail_http,
+    ):
         app.state.parcelpath = make_client(http)
+        app.state.mailer = Mailer(mail_http)
         yield
     watcher.cancel()
 
@@ -38,9 +51,12 @@ def create_app() -> FastAPI:
     app.include_router(catalog.router)
     app.include_router(checkout.router)
     app.include_router(search.router)
+    app.include_router(orders.router)
 
     @app.exception_handler(PoolTimeout)
-    async def pool_busy(request: Request, exc: PoolTimeout):
+    async def pool_busy(
+        request: Request, exc: PoolTimeout
+    ):
         return JSONResponse(
             {"detail": "busy, try again"},
             status_code=503,

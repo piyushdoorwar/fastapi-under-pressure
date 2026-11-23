@@ -57,7 +57,8 @@ async def main():
     limiter = to_thread.current_default_thread_limiter()
     print(f"threadpool size: {limiter.total_tokens}")
     await measure("hash in async def", inline_hash)
-    await measure("hash in a worker thread", threaded_hash)
+    await measure("hash in a worker thread",
+                  threaded_hash)
     await measure("100 x sleep(0.5) in threads",
                   hundred_sleeps)
 

@@ -27,11 +27,10 @@ async def send(client, n, seed):
 
 
 async def main(args):
-    structlog.configure(  # keep the request logs quiet
-        wrapper_class=structlog.make_filtering_bound_logger(
-            logging.WARNING
-        )
+    quiet = structlog.make_filtering_bound_logger(
+        logging.WARNING
     )
+    structlog.configure(wrapper_class=quiet)
     app = create_app()
     transport = httpx2.ASGITransport(app=app)
     async with (
@@ -66,7 +65,9 @@ async def main(args):
             size + stat.size_diff,
             count + stat.count_diff,
         ]
-    top = sorted(by_line.items(), key=lambda kv: -kv[1][0])
+    top = sorted(
+        by_line.items(), key=lambda kv: -kv[1][0]
+    )
     for line, (size, count) in top[:args.top]:
         print(f"{size / 2**20:6.1f} MiB {count:+8d} "
               f"objects  {line}")

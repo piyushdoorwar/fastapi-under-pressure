@@ -48,7 +48,18 @@ def catalogue(size: int):
                f"Refurbished {kind} #{n}", price, grams)
 
 
+# The phone in Ben's ticket: one left, in Dallas.
+FIXED_STOCK = {"PHN-12-R": {"dallas": 1}}
+
+
 def stock(sku: str, rng: random.Random):
+    if sku in FIXED_STOCK:
+        for warehouse in WAREHOUSES:
+            qty = FIXED_STOCK[sku].get(warehouse, 0)
+            yield StockLevel(
+                sku=sku, warehouse=warehouse, qty=qty
+            )
+        return
     for warehouse in WAREHOUSES:
         qty = rng.choice([0, 0, 1, 3, 8, 20])
         yield StockLevel(

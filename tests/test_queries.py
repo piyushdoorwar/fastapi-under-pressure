@@ -21,7 +21,9 @@ def count_queries():
     try:
         yield statements
     finally:
-        event.remove(sync, "before_cursor_execute", record)
+        event.remove(
+            sync, "before_cursor_execute", record
+        )
 
 
 async def test_catalogue_query_count_is_constant(client):

@@ -7,7 +7,9 @@ import tracemalloc
 from secondloop.routes import search
 
 
-async def test_tracking_params_share_a_cache_entry(client):
+async def test_tracking_params_share_a_cache_entry(
+    client,
+):
     search.CACHE.clear()
     for ref in ("a1", "b2", "c3"):
         resp = await client.get(

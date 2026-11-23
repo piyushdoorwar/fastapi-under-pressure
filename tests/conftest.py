@@ -8,6 +8,7 @@ os.environ.setdefault(
     "/secondloop_test",
 )
 os.environ["PARCELPATH_URL"] = "http://127.0.0.1:8091"
+os.environ["MAILER_URL"] = "http://127.0.0.1:8092"
 
 import httpx2
 import pytest
@@ -45,7 +46,11 @@ def fixed_rate(app):
 
 @pytest.fixture
 async def client(app):
-    transport = httpx2.ASGITransport(app=app)
+    # Like a real server: errors become responses, and
+    # errors after the response has gone are not seen.
+    transport = httpx2.ASGITransport(
+        app=app, raise_app_exceptions=False
+    )
     async with (
         app.router.lifespan_context(app),
         httpx2.AsyncClient(
@@ -75,3 +80,49 @@ def slow_partner():
     yield
     server.should_exit = True
     thread.join()
+
+
+@pytest.fixture(scope="session")
+def mail_server():
+    """Run the fake email provider on port 8092."""
+    from fakes.mailer import app
+
+    server = uvicorn.Server(uvicorn.Config(
+        app, port=8092, log_level="warning"
+    ))
+    thread = threading.Thread(
+        target=server.run, daemon=True
+    )
+    thread.start()
+    while not server.started:
+        time.sleep(0.01)
+    yield
+    server.should_exit = True
+    thread.join()
+
+
+@pytest.fixture
+async def inbox(mail_server, slow_partner):
+    """Read what the shop API emailed, and make the
+    email provider fail on demand."""
+    async with httpx2.AsyncClient(
+        base_url="http://127.0.0.1:8092"
+    ) as mail:
+        await mail.delete("/v1/messages")
+
+        class Inbox:
+            async def to(self, address):
+                resp = await mail.get(
+                    "/v1/messages", params={"to": address}
+                )
+                return resp.json()
+
+            async def fail_with(self, status):
+                await mail.put(
+                    "/_fake/mode", json={"status": status}
+                )
+
+        yield Inbox()
+        await mail.put(
+            "/_fake/mode", json={"status": 202}
+        )
