@@ -40,3 +40,20 @@ async def test_search_traffic_does_not_grow_memory(
     tracemalloc.stop()
     grew_kb = (after - before) / 1024
     assert grew_kb < 256, f"grew {grew_kb:.0f} KiB"
+
+
+def test_cache_evicts_oldest_and_expires():
+    from secondloop.cache import TTLCache
+
+    now = [0.0]
+    cache = TTLCache(
+        max_entries=2, ttl_s=60, clock=lambda: now[0]
+    )
+    cache.put("a", 1)
+    cache.put("b", 2)
+    cache.get("a")       # "a" is now the most recent
+    cache.put("c", 3)    # so "b" goes
+    assert cache.get("b") is None
+    assert cache.get("a") == 1
+    now[0] = 61.0
+    assert cache.get("a") is None  # expired
