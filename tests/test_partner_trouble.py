@@ -4,27 +4,10 @@ or failing, and recovers when ParcelPath does."""
 
 import time
 
-import httpx2
-import pytest
-
 CART = {
     "lines": [{"sku": "LAP-14-R", "qty": 1}],
     "postcode": "94107",
 }
-
-
-@pytest.fixture
-async def partner(slow_partner):
-    """Change how the fake ParcelPath behaves for one
-    test, and put it back afterwards."""
-    async with httpx2.AsyncClient(
-        base_url="http://127.0.0.1:8091"
-    ) as admin:
-        async def set_mode(**mode):
-            await admin.put("/_fake/mode", json=mode)
-
-        yield set_mode
-        await set_mode(delay_ms=300, status=200)
 
 
 async def timed_quote(client):

@@ -14,6 +14,7 @@ import httpx2
 import structlog
 from fastapi import Request
 from prometheus_client import Counter, Gauge
+from pydantic import BaseModel
 
 from secondloop.partners.breaker import CircuitBreaker
 from secondloop.settings import settings
@@ -36,6 +37,23 @@ class Rate:
     service: str
     amount_cents: int
     eta_days: int
+
+
+class RateIn(BaseModel):
+    """A rate as ParcelPath sends it. ParcelPath v1.4
+    adds `amount`, in dollars, and drops `amount_cents`.
+    This reads both, so the switch needs no deploy."""
+
+    service: str
+    eta_days: int
+    amount_cents: int = 0  # gone in v1.4
+    amount: float | None = None  # new in v1.4
+
+    def to_rate(self) -> Rate:
+        cents = self.amount_cents
+        if self.amount is not None:
+            cents = int(self.amount * 100)
+        return Rate(self.service, cents, self.eta_days)
 
 
 class PartnerUnavailable(Exception):
@@ -69,7 +87,9 @@ class ParcelPathClient:
                     },
                 )
                 resp.raise_for_status()
-                rate = Rate(**resp.json())
+                rate = RateIn.model_validate(
+                    resp.json()
+                ).to_rate()
         except (TimeoutError, httpx2.HTTPError) as exc:
             outcome = (
                 "timeout" if isinstance(exc, TimeoutError)

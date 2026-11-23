@@ -82,6 +82,21 @@ def slow_partner():
     thread.join()
 
 
+@pytest.fixture
+async def partner(slow_partner):
+    """Change how the fake ParcelPath behaves for one
+    test, and put it back afterwards."""
+    async with httpx2.AsyncClient(
+        base_url="http://127.0.0.1:8091"
+    ) as admin:
+        async def set_mode(**mode):
+            await admin.put("/_fake/mode", json=mode)
+
+        yield set_mode
+        await set_mode(delay_ms=300, status=200,
+                       version="1.3", body=None)
+
+
 @pytest.fixture(scope="session")
 def mail_server():
     """Run the fake email provider on port 8092."""
