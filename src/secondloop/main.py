@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from secondloop.db import engine
 from secondloop.observability import (
     instrument,
     watch_event_loop,
+    watch_pool,
 )
 from secondloop.partners.parcelpath import (
     ParcelPathClient,
@@ -28,6 +30,7 @@ def create_app() -> FastAPI:
         title="SecondLoop shop API", lifespan=lifespan
     )
     instrument(app)
+    watch_pool(engine)
     app.include_router(catalog.router)
     app.include_router(checkout.router)
 
