@@ -10,6 +10,8 @@ from secondloop.db import get_session
 from secondloop.models import Product
 from secondloop.partners.parcelpath import (
     ParcelPathClient,
+    PartnerUnavailable,
+    Rate,
     get_parcelpath,
 )
 
@@ -38,6 +40,16 @@ class QuoteOut(BaseModel):
     shipping_cents: int
     total_cents: int
     eta_days: int
+    shipping_estimated: bool
+
+
+def estimate(weight_grams: int) -> Rate:
+    """SecondLoop's own shipping table, used when
+    ParcelPath can't answer in time. It's set a little
+    above ParcelPath's prices, and SecondLoop pays any
+    difference."""
+    kilos = max(1, -(-weight_grams // 1000))
+    return Rate("ground", 599 + 200 * kilos, 5)
 
 
 @router.post("/checkout/quote")
@@ -64,13 +76,19 @@ async def quote(
         subtotal += p.price_cents * line.qty
         weight += p.weight_grams * line.qty
 
-    rate = await parcelpath.get_rate(
-        weight, body.postcode
-    )
+    estimated = False
+    try:
+        rate = await parcelpath.get_rate(
+            weight, body.postcode
+        )
+    except PartnerUnavailable:
+        rate = estimate(weight)
+        estimated = True
     return QuoteOut(
         quote_id=uuid4().hex[:12],
         subtotal_cents=subtotal,
         shipping_cents=rate.amount_cents,
         total_cents=subtotal + rate.amount_cents,
         eta_days=rate.eta_days,
+        shipping_estimated=estimated,
     )

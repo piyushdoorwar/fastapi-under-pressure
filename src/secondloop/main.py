@@ -13,7 +13,7 @@ from secondloop.observability import (
     watch_queries,
 )
 from secondloop.partners.parcelpath import (
-    ParcelPathClient,
+    make_client,
     make_http,
 )
 from secondloop.routes import catalog, checkout
@@ -23,7 +23,7 @@ from secondloop.routes import catalog, checkout
 async def lifespan(app: FastAPI):
     watcher = asyncio.create_task(watch_event_loop())
     async with make_http() as http:
-        app.state.parcelpath = ParcelPathClient(http)
+        app.state.parcelpath = make_client(http)
         yield
     watcher.cancel()
 
