@@ -116,3 +116,24 @@ class IdempotencyKey(Base):
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now()
     )
+
+
+class OutboxMessage(Base):
+    """An email to send, saved in the same transaction
+    as the order it belongs to. The worker sends it."""
+
+    __tablename__ = "outbox"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
+    available_at: Mapped[datetime] = mapped_column(
+        server_default=func.now()
+    )
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_error: Mapped[str | None]
+    sent_at: Mapped[datetime | None]

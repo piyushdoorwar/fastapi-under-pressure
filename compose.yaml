@@ -24,3 +24,10 @@ services:
       MAILER_URL: http://mailer:8082
     ports: ["8000:8000"]
     depends_on: [db, partner, mailer]
+  worker:
+    build: .
+    command: python -m secondloop.worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres@db/secondloop
+      MAILER_URL: http://mailer:8082
+    depends_on: [db, mailer]

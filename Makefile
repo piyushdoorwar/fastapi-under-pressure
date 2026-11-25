@@ -1,13 +1,16 @@
 # SecondLoop: FastAPI Under Pressure companion repo
 PY ?= python
 
-.PHONY: seed api partner mailer load test lint
+.PHONY: seed api worker partner mailer load test lint
 
 seed:
 	$(PY) -m secondloop.seed
 
 api:
 	uvicorn secondloop.main:app --port 8000 --no-access-log
+
+worker:
+	$(PY) -m secondloop.worker
 
 partner:
 	uvicorn fakes.parcelpath:app --port 8081

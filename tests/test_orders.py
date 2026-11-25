@@ -33,7 +33,7 @@ def order(email, sku, qty):
 
 
 async def test_order_is_saved_and_confirmed(
-    client, inbox
+    client, inbox, delivered
 ):
     email = "ana@example.com"
     resp = await client.post(
@@ -42,6 +42,7 @@ async def test_order_is_saved_and_confirmed(
     assert resp.status_code == 201
     number = resp.json()["number"]
     assert await order_count(email) == 1
+    await delivered()
     [message] = await inbox.to(email)
     assert number in message["subject"]
 

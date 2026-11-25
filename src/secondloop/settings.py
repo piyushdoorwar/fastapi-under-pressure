@@ -9,8 +9,8 @@ class Settings(BaseSettings):
     db_pool_size: int = 10
     db_pool_timeout_s: float = 1.0
     mailer_url: str = "http://localhost:8082"
-    # Seconds between attempts at a confirmation email.
-    mail_retry_delays: tuple[float, ...] = (1, 2, 4, 8)
+    # How often the worker looks for emails to send.
+    worker_poll_s: float = 1.0
     parcelpath_url: str = "http://localhost:8081"
     parcelpath_timeout_s: float = 5.0
     # The storefront waits 2 s for a whole quote.

@@ -41,7 +41,7 @@ def number(resp):
 
 
 async def test_retry_returns_the_first_order(
-    client, inbox
+    client, inbox, delivered
 ):
     email = "sam@example.com"
     first = await client.post(
@@ -54,14 +54,15 @@ async def test_retry_returns_the_first_order(
     assert number(again) == number(first)
     assert again.headers["Idempotent-Replayed"] == "true"
     assert await orders_for(email) == 1
+    await delivered()
     assert len(await inbox.to(email)) == 1
 
 
 async def test_retry_while_the_first_is_running(
-    client, inbox
+    client, inbox, partner, delivered
 ):
     email = "kim@example.com"
-    await inbox.slow(1000)
+    await partner(delay_ms=800)  # a slow first attempt
     first = asyncio.create_task(client.post(
         "/orders", json=order(email), headers=key("b")
     ))
@@ -72,6 +73,7 @@ async def test_retry_while_the_first_is_running(
     first = await first
     assert number(again) == number(first)
     assert await orders_for(email) == 1
+    await delivered()
     assert len(await inbox.to(email)) == 1
 
 

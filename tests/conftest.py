@@ -9,7 +9,6 @@ os.environ.setdefault(
 )
 os.environ["PARCELPATH_URL"] = "http://127.0.0.1:8091"
 os.environ["MAILER_URL"] = "http://127.0.0.1:8092"
-os.environ["MAIL_RETRY_DELAYS"] = "[0.01, 0.01]"
 
 import httpx2
 import pytest
@@ -145,3 +144,20 @@ async def inbox(mail_server, slow_partner):
 
         yield Inbox()
         await mail.put("/_fake/mode", json={})
+
+
+@pytest.fixture
+async def delivered(inbox):
+    """Do the worker's job once: send what the outbox
+    holds (chapter 12)."""
+    from secondloop.outbox import deliver_pending
+    from secondloop.partners.mailer import (
+        Mailer,
+        make_mailer_http,
+    )
+
+    async with make_mailer_http() as http:
+        async def run():
+            return await deliver_pending(Mailer(http))
+
+        yield run
