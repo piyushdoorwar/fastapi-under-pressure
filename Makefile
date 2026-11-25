@@ -7,7 +7,7 @@ seed:
 	$(PY) -m secondloop.seed
 
 api:
-	uvicorn secondloop.main:app --port 8000 --no-access-log
+	$(PY) -m secondloop.serve --port 8000
 
 worker:
 	$(PY) -m secondloop.worker

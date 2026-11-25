@@ -33,6 +33,8 @@ exactly as the chapter shows it.
 | `ch12-fixed` | Outbox written with the order; `secondloop.worker` sends it |
 | `ch13-broken` | Fake provider honours `Idempotency-Key` and rejects bad addresses; delivery tests (three fail) |
 | `ch13-fixed` | Leased outbox messages, one key per message, dead letters and `tools/outbox.py` |
+| `ch14-broken` | Fake load balancer, `tools/deploy.py` (recreate), `load.py --timeline`; deploy tests (four fail) |
+| `ch14-fixed` | `/readyz` separate from `/healthz`, drain on SIGTERM (`secondloop.serve`), rolling deploys |
 
 ## Run it locally
 

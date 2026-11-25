@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
+from secondloop import health
 from secondloop.db import engine
 from secondloop.observability import (
     instrument,
@@ -63,10 +64,8 @@ def create_app() -> FastAPI:
             headers={"Retry-After": "1"},
         )
 
-    @app.get("/healthz")
-    async def healthz() -> dict[str, str]:
-        return {"status": "ok"}
-
+    app.include_router(health.router)
+    app.state.draining = False
     return app
 
 

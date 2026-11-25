@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     db_pool_timeout_s: float = 1.0
     mailer_url: str = "http://localhost:8082"
     mailer_timeout_s: float = 2.0
+    # Shutdown (chapter 14): stay up but not ready for
+    # drain_s, then finish requests for at most
+    # shutdown_timeout_s. Together they must fit in the
+    # platform's grace period (10 s for docker stop).
+    drain_s: float = 2.0
+    shutdown_timeout_s: float = 5.0
     # How often the worker looks for emails to send.
     worker_poll_s: float = 1.0
     # How long a worker may hold a message (chapter 13).
