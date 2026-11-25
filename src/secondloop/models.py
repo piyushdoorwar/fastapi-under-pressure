@@ -137,3 +137,7 @@ class OutboxMessage(Base):
     attempts: Mapped[int] = mapped_column(default=0)
     last_error: Mapped[str | None]
     sent_at: Mapped[datetime | None]
+    # A worker has it until then (chapter 13).
+    leased_until: Mapped[datetime | None]
+    # Given up on: a dead letter, kept for a person.
+    dead_at: Mapped[datetime | None]

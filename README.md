@@ -31,6 +31,8 @@ exactly as the chapter shows it.
 | `ch11-fixed` | Complete rate models, money as `Decimal`, unreadable rates fall back to the estimate |
 | `ch12-broken` | Confirmation email in `BackgroundTasks`; outbox tests and `tools/stop.py` (four fail) |
 | `ch12-fixed` | Outbox written with the order; `secondloop.worker` sends it |
+| `ch13-broken` | Fake provider honours `Idempotency-Key` and rejects bad addresses; delivery tests (three fail) |
+| `ch13-fixed` | Leased outbox messages, one key per message, dead letters and `tools/outbox.py` |
 
 ## Run it locally
 

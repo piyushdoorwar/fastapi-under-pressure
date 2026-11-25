@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     mailer_timeout_s: float = 2.0
     # How often the worker looks for emails to send.
     worker_poll_s: float = 1.0
+    # How long a worker may hold a message (chapter 13).
+    outbox_lease_s: float = 30.0
+    outbox_max_attempts: int = 10
     parcelpath_url: str = "http://localhost:8081"
     parcelpath_timeout_s: float = 5.0
     # The storefront waits 2 s for a whole quote.
