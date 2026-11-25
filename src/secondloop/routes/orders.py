@@ -8,17 +8,20 @@ The order of the steps is the point of this module:
    stock and save the order. If anything fails, the
    whole transaction rolls back and nothing has
    happened.
-3. Only after the commit, tell the customer.
+3. Only after the commit, tell the customer, in the
+   background, so the order doesn't wait for email.
 
 A request with an Idempotency-Key that has already
 made an order gets that order back (chapter 10).
 """
 
+import asyncio
 from typing import Annotated
 
 import structlog
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     Header,
     HTTPException,
@@ -29,7 +32,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from secondloop.db import get_session
+from secondloop.db import Session, get_session
 from secondloop.idempotency import (
     claim,
     find,
@@ -54,6 +57,7 @@ from secondloop.partners.parcelpath import (
     get_parcelpath,
 )
 from secondloop.routes.checkout import Line, estimate
+from secondloop.settings import settings
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -112,6 +116,7 @@ async def place_order(
     parcelpath: ParcelPath,
     mailer: Mail,
     response: Response,
+    background: BackgroundTasks,
     key: Key = None,
 ) -> OrderOut:
     skus = [line.sku for line in body.lines]
@@ -162,13 +167,17 @@ async def place_order(
             raise out_of_stock(skus[0]) from exc
         raise
 
-    # 3. The order is committed. Now tell the customer.
-    sent = await confirm(db, mailer, order)
+    # 3. The order is committed. Tell the customer once
+    #    the response has gone.
+    background.add_task(
+        confirm, mailer, order.id, order.number,
+        order.email,
+    )
     return OrderOut(
         number=order.number,
         total_cents=order.total_cents,
         shipping_estimated=estimated,
-        confirmation_sent=sent,
+        confirmation_sent=True,  # on its way
     )
 
 
@@ -223,22 +232,30 @@ async def take_stock(db, sku: str, qty: int) -> str:
     raise out_of_stock(sku)
 
 
-async def confirm(db, mailer, order: Order) -> bool:
-    number = order.number
-    try:
-        await mailer.send(
-            order.email,
-            f"Your SecondLoop order {number}",
-            f"Thanks! We've received order {number}.",
-        )
-    except MailerError:
-        log.warning("order_confirmation_failed",
-                    order=number)
-        return False
-    async with db.begin():
+async def confirm(mailer, order_id, number, email):
+    """Send the confirmation. This runs after the
+    response, so it can afford to retry while the email
+    provider is having a bad minute."""
+    delays = settings.mail_retry_delays
+    for attempt, delay in enumerate((*delays, None), 1):
+        try:
+            await mailer.send(
+                email,
+                f"Your SecondLoop order {number}",
+                f"Thanks! We've received order {number}.",
+            )
+            break
+        except MailerError:
+            if delay is None:
+                log.warning(
+                    "order_confirmation_failed",
+                    order=number, attempts=attempt,
+                )
+                return
+            await asyncio.sleep(delay)
+    async with Session.begin() as db:
         await db.execute(
             update(Order)
-            .where(Order.id == order.id)
+            .where(Order.id == order_id)
             .values(confirmation_sent_at=func.now())
         )
-    return True

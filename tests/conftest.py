@@ -9,6 +9,7 @@ os.environ.setdefault(
 )
 os.environ["PARCELPATH_URL"] = "http://127.0.0.1:8091"
 os.environ["MAILER_URL"] = "http://127.0.0.1:8092"
+os.environ["MAIL_RETRY_DELAYS"] = "[0.01, 0.01]"
 
 import httpx2
 import pytest

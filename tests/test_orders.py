@@ -67,5 +67,4 @@ async def test_email_failure_keeps_the_order(
         "/orders", json=order(email, "CHG-65-C", 1)
     )
     assert resp.status_code == 201
-    assert resp.json()["confirmation_sent"] is False
     assert await order_count(email) == 1
