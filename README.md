@@ -35,6 +35,8 @@ exactly as the chapter shows it.
 | `ch13-fixed` | Leased outbox messages, one key per message, dead letters and `tools/outbox.py` |
 | `ch14-broken` | Fake load balancer, `tools/deploy.py` (recreate), `load.py --timeline`; deploy tests (four fail) |
 | `ch14-fixed` | `/readyz` separate from `/healthz`, drain on SIGTERM (`secondloop.serve`), rolling deploys |
+| `ch15-broken` | Account pages with identity-provider tokens, fake identity provider; sign-in tests (three fail) |
+| `ch15-fixed` | Key cache that refreshes on rotation, clock leeway, rejection reasons counted |
 
 ## Run it locally
 
@@ -48,6 +50,7 @@ Python 3.13 and PostgreSQL 16 or later.
     make mailer      # terminal 2 (from chapter 8)
     make api         # terminal 3
     make worker      # terminal 4 (from chapter 12)
+    make idp         # (from chapter 15)
     make load        # terminal 5
 
 Moving back to an earlier tag after a later one? The

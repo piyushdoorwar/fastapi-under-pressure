@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     db_pool_timeout_s: float = 1.0
     mailer_url: str = "http://localhost:8082"
     mailer_timeout_s: float = 2.0
+    idp_url: str = "http://localhost:8083"
     # Shutdown (chapter 14): stay up but not ready for
     # drain_s, then finish requests for at most
     # shutdown_timeout_s. Together they must fit in the

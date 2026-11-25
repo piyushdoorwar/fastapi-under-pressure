@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from secondloop import health
+from secondloop.auth import load_keys, make_idp_http
 from secondloop.db import engine
 from secondloop.observability import (
     instrument,
@@ -22,6 +23,7 @@ from secondloop.partners.parcelpath import (
     make_http,
 )
 from secondloop.routes import (
+    account,
     catalog,
     checkout,
     orders,
@@ -35,9 +37,11 @@ async def lifespan(app: FastAPI):
     async with (
         make_http() as http,
         make_mailer_http() as mail_http,
+        make_idp_http() as idp_http,
     ):
         app.state.parcelpath = make_client(http)
         app.state.mailer = Mailer(mail_http)
+        app.state.idp_keys = await load_keys(idp_http)
         yield
     watcher.cancel()
 
@@ -53,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(checkout.router)
     app.include_router(search.router)
     app.include_router(orders.router)
+    app.include_router(account.router)
 
     @app.exception_handler(PoolTimeout)
     async def pool_busy(

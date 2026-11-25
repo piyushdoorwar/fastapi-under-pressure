@@ -15,6 +15,10 @@ services:
     build: .
     command: uvicorn fakes.mailer:app --host 0.0.0.0 --port 8082
     ports: ["8082:8082"]
+  idp:
+    build: .
+    command: uvicorn fakes.idp:app --host 0.0.0.0 --port 8083
+    ports: ["8083:8083"]
   api:
     build: .
     command: python -m secondloop.serve --host 0.0.0.0 --port 8000
@@ -23,8 +27,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres@db/secondloop
       PARCELPATH_URL: http://partner:8081
       MAILER_URL: http://mailer:8082
+      IDP_URL: http://idp:8083
     ports: ["8000:8000"]
-    depends_on: [db, partner, mailer]
+    depends_on: [db, partner, mailer, idp]
   worker:
     build: .
     command: python -m secondloop.worker

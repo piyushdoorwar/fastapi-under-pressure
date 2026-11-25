@@ -9,6 +9,8 @@ os.environ.setdefault(
 )
 os.environ["PARCELPATH_URL"] = "http://127.0.0.1:8091"
 os.environ["MAILER_URL"] = "http://127.0.0.1:8092"
+os.environ["IDP_URL"] = "http://127.0.0.1:8093"
+os.environ["IDP_REFRESH_COOLDOWN_S"] = "0.5"
 os.environ["MAILER_TIMEOUT_S"] = "0.2"
 os.environ["OUTBOX_LEASE_S"] = "0.5"
 
@@ -116,6 +118,57 @@ def mail_server():
     yield
     server.should_exit = True
     thread.join()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def idp_server():
+    """Run the fake identity provider on port 8093.
+    Every app's startup fetches its keys, so it runs
+    for every test."""
+    from fakes.idp import app
+
+    server = uvicorn.Server(uvicorn.Config(
+        app, port=8093, log_level="warning"
+    ))
+    thread = threading.Thread(
+        target=server.run, daemon=True
+    )
+    thread.start()
+    while not server.started:
+        time.sleep(0.01)
+    yield
+    server.should_exit = True
+    thread.join()
+
+
+@pytest.fixture
+async def idp():
+    """Get tokens from the fake identity provider, and
+    make it rotate keys or run a fast clock."""
+    async with httpx2.AsyncClient(
+        base_url="http://127.0.0.1:8093"
+    ) as http:
+        class Idp:
+            async def token(self, email, ttl_s=300):
+                resp = await http.post("/token", json={
+                    "email": email, "ttl_s": ttl_s,
+                })
+                return resp.json()["access_token"]
+
+            async def mode(self, **mode):
+                resp = await http.put(
+                    "/_fake/mode", json=mode
+                )
+                return resp.json()
+
+            async def stats(self):
+                resp = await http.get("/_fake/stats")
+                return resp.json()
+
+        yield Idp()
+        await http.put(
+            "/_fake/mode", json={"reset": True}
+        )
 
 
 @pytest.fixture
