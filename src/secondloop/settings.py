@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     mailer_url: str = "http://localhost:8082"
     mailer_timeout_s: float = 2.0
     idp_url: str = "http://localhost:8083"
+    # Sign-in (chapter 15).
+    idp_keys_ttl_s: float = 600
+    idp_refresh_cooldown_s: float = 30
+    idp_leeway_s: float = 10
     # Shutdown (chapter 14): stay up but not ready for
     # drain_s, then finish requests for at most
     # shutdown_timeout_s. Together they must fit in the

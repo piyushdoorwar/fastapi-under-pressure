@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import TimeoutError as PoolTimeout
 
 from secondloop import health
-from secondloop.auth import load_keys, make_idp_http
+from secondloop.auth import KeyCache, make_idp_http
 from secondloop.db import engine
 from secondloop.observability import (
     instrument,
@@ -41,7 +41,10 @@ async def lifespan(app: FastAPI):
     ):
         app.state.parcelpath = make_client(http)
         app.state.mailer = Mailer(mail_http)
-        app.state.idp_keys = await load_keys(idp_http)
+        app.state.idp_keys = KeyCache(idp_http)
+        # Best effort: if the provider is down, start
+        # anyway and fetch on the first sign-in.
+        await app.state.idp_keys.refresh()
         yield
     watcher.cancel()
 
