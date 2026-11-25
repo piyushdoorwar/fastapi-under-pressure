@@ -37,6 +37,7 @@ exactly as the chapter shows it.
 | `ch14-fixed` | `/readyz` separate from `/healthz`, drain on SIGTERM (`secondloop.serve`), rolling deploys |
 | `ch15-broken` | Account pages with identity-provider tokens, fake identity provider; sign-in tests (three fail) |
 | `ch15-fixed` | Key cache that refreshes on rotation, clock leeway, rejection reasons counted |
+| `ch16` | `tools/drills.py`, alert rules and runbooks in `ops/`, worker metrics, release checklist |
 
 ## Run it locally
 

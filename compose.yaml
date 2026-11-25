@@ -33,6 +33,7 @@ services:
   worker:
     build: .
     command: python -m secondloop.worker
+    ports: ["9101:9101"]
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres@db/secondloop
       MAILER_URL: http://mailer:8082

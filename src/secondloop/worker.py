@@ -13,9 +13,11 @@ import signal
 import time
 
 import structlog
+from prometheus_client import Gauge, start_http_server
 
 import secondloop.observability  # noqa: F401  JSON logs
 from secondloop.outbox import (
+    backlog,
     deliver_pending,
     forget_old_keys,
 )
@@ -26,6 +28,14 @@ from secondloop.partners.mailer import (
 from secondloop.settings import settings
 
 log = structlog.get_logger()
+OLDEST = Gauge(
+    "outbox_oldest_unsent_seconds",
+    "How long the oldest waiting email has waited",
+)
+DEAD = Gauge(
+    "outbox_dead_letters",
+    "Emails given up on, waiting for a person",
+)
 
 
 async def run(stop: asyncio.Event) -> None:
@@ -35,6 +45,9 @@ async def run(stop: asyncio.Event) -> None:
         log.info("worker_started")
         while not stop.is_set():
             await deliver_pending(mailer, stop)
+            age, dead = await backlog()
+            OLDEST.set(age)
+            DEAD.set(dead)
             if time.monotonic() - last_cleanup > 3600:
                 await forget_old_keys()
                 last_cleanup = time.monotonic()
@@ -49,6 +62,8 @@ async def run(stop: asyncio.Event) -> None:
 
 def main() -> None:
     stop = asyncio.Event()
+    if settings.worker_metrics_port:
+        start_http_server(settings.worker_metrics_port)
 
     async def start():
         loop = asyncio.get_running_loop()

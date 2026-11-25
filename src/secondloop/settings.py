@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     shutdown_timeout_s: float = 5.0
     # How often the worker looks for emails to send.
     worker_poll_s: float = 1.0
+    # The worker's /metrics (chapter 16); 0 turns it off.
+    worker_metrics_port: int = 9101
     # How long a worker may hold a message (chapter 13).
     outbox_lease_s: float = 30.0
     outbox_max_attempts: int = 10

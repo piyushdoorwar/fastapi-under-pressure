@@ -184,3 +184,25 @@ async def forget_old_keys() -> int:
             )
         )
     return result.rowcount
+
+
+async def backlog() -> tuple[float, int]:
+    """Seconds the oldest waiting message has waited,
+    and how many dead letters there are (chapter 16)."""
+    async with Session() as db:
+        oldest = await db.scalar(
+            select(func.min(Message.created_at))
+            .where(Message.sent_at.is_(None),
+                   Message.dead_at.is_(None))
+        )
+        age = await db.scalar(
+            select(func.extract(
+                "epoch", func.now() - oldest
+            ))
+        ) if oldest else 0.0
+        dead = await db.scalar(
+            select(func.count()).select_from(Message)
+            .where(Message.sent_at.is_(None),
+                   Message.dead_at.is_not(None))
+        )
+    return float(age or 0), dead

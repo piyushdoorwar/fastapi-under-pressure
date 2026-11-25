@@ -1,0 +1,131 @@
+# Prometheus alerting rules for the shop API and worker.
+# Every rule names the chapter it comes from and has a
+# runbook in ops/runbooks/. tests/test_ops.py checks
+# that each metric used here exists.
+groups:
+  - name: shop-api
+    rules:
+      # Chapter 1. SLO: 99.9 % of requests answered
+      # without a 5xx over 30 days. Page when the error
+      # budget burns 14.4 times too fast, over both the
+      # last hour and the last five minutes.
+      - alert: ErrorBudgetBurn
+        expr: |
+          (
+            sum(rate(http_request_duration_seconds_count{
+              status=~"5.."}[1h]))
+            / sum(rate(
+              http_request_duration_seconds_count[1h]))
+          ) > 14.4 * 0.001
+          and
+          (
+            sum(rate(http_request_duration_seconds_count{
+              status=~"5.."}[5m]))
+            / sum(rate(
+              http_request_duration_seconds_count[5m]))
+          ) > 14.4 * 0.001
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/error-budget-burn.md
+
+      # Chapter 1. SLO: 99 % of quotes within 1.5 s.
+      - alert: QuotesSlow
+        expr: |
+          histogram_quantile(0.99, sum by (le) (rate(
+            http_request_duration_seconds_bucket{
+              route="/checkout/quote"}[10m]
+          ))) > 1.5
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/quotes-slow.md
+
+      # Chapter 2.
+      - alert: EventLoopLagging
+        expr: |
+          max_over_time(event_loop_lag_seconds[5m])
+            > 0.25
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          runbook: ops/runbooks/event-loop-lagging.md
+
+      # Chapter 4.
+      - alert: DatabasePoolFull
+        expr: |
+          min_over_time(db_pool_connections_in_use[2m])
+            >= 10
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/database-pool-full.md
+
+      # Chapter 5.
+      - alert: QueriesPerRequestHigh
+        expr: |
+          histogram_quantile(0.99, sum by (le, route) (
+            rate(db_queries_per_request_bucket[10m])
+          )) > 25
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          runbook: ops/runbooks/queries-per-request-high.md
+
+      # Chapter 6.
+      - alert: ParcelPathBreakerOpen
+        expr: |
+          max_over_time(parcelpath_breaker_open[5m]) == 1
+        for: 5m
+        labels: {severity: ticket}
+        annotations:
+          runbook: ops/runbooks/parcelpath-breaker-open.md
+
+      # Chapter 7. The container limit is 1 GB.
+      - alert: MemoryHigh
+        expr: process_resident_memory_bytes > 700e6
+        for: 15m
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/memory-high.md
+
+      # Chapter 11. One unreadable answer is news.
+      - alert: ParcelPathBadRates
+        expr: |
+          increase(parcelpath_calls_total{
+            outcome="bad_rate"}[5m]) > 0
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/parcelpath-bad-rates.md
+
+      # Chapter 15.
+      - alert: SignInUnknownKeys
+        expr: |
+          increase(auth_rejections_total{
+            reason="unknown_key"}[5m]) > 20
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/sign-in-unknown-keys.md
+
+      - alert: SignInClockSkew
+        expr: |
+          increase(auth_rejections_total{
+            reason="not_yet_valid"}[15m]) > 0
+        labels: {severity: ticket}
+        annotations:
+          runbook: ops/runbooks/sign-in-clock-skew.md
+
+  - name: worker
+    rules:
+      # Chapter 12.
+      - alert: ConfirmationsStuck
+        expr: max(outbox_oldest_unsent_seconds) > 300
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          runbook: ops/runbooks/confirmations-stuck.md
+
+      # Chapter 13.
+      - alert: ConfirmationDeadLetters
+        expr: max(outbox_dead_letters) > 0
+        labels: {severity: ticket}
+        annotations:
+          runbook: ops/runbooks/confirmation-dead-letters.md
