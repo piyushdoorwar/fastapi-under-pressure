@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     db_pool_size: int = 10
     db_pool_timeout_s: float = 1.0
     mailer_url: str = "http://localhost:8082"
+    mailer_timeout_s: float = 2.0
     # How often the worker looks for emails to send.
     worker_poll_s: float = 1.0
     parcelpath_url: str = "http://localhost:8081"

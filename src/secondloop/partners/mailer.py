@@ -33,7 +33,8 @@ class Mailer:
 
 def make_mailer_http() -> httpx2.AsyncClient:
     return httpx2.AsyncClient(
-        base_url=settings.mailer_url, timeout=2.0
+        base_url=settings.mailer_url,
+        timeout=settings.mailer_timeout_s,
     )
 
 
