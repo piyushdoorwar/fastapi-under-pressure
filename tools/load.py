@@ -6,6 +6,9 @@ matches the storefront's, so a timeout here is a
 "Something went wrong" page for a customer.
 
     python tools/load.py --users 20 --seconds 30
+
+--timeline adds one line for every second in which a
+request failed (chapter 14).
 """
 
 import argparse
@@ -36,7 +39,7 @@ async def call(client, name):
     return await client.post("/checkout/quote", json=CART)
 
 
-async def user(client, deadline, results):
+async def user(client, deadline, results, began):
     names = [n for n, _ in MIX]
     weights = [w for _, w in MIX]
     while time.monotonic() < deadline:
@@ -50,7 +53,7 @@ async def user(client, deadline, results):
         except httpx2.HTTPError:
             ok = False
         ms = (time.perf_counter() - start) * 1000
-        results[name].append((ms, ok))
+        results[name].append((ms, ok, start - began))
 
 
 def pct(values, p):
@@ -67,9 +70,10 @@ def report(results, seconds):
           f"{'p95':>5}{'p99':>5}{'max':>5}{'t/o':>5}"
           f"{'err':>5}")
     for name, rows in sorted(results.items()):
-        ms = [m for m, _ in rows]
-        timeouts = sum(1 for _, ok in rows if ok is None)
-        errors = sum(1 for _, ok in rows if ok is False)
+        ms = [m for m, _, _ in rows]
+        oks = [ok for _, ok, _ in rows]
+        timeouts = oks.count(None)
+        errors = oks.count(False)
         print(f"{name:<21}{len(rows):>5}"
               f"{pct(ms, 50):>5.0f}{pct(ms, 95):>5.0f}"
               f"{pct(ms, 99):>5.0f}{max(ms):>5.0f}"
@@ -79,6 +83,17 @@ def report(results, seconds):
           "  (times in ms; err = 5xx or failed)")
 
 
+def timeline(results):
+    by_second = defaultdict(lambda: [0, 0])
+    for rows in results.values():
+        for _, ok, at in rows:
+            by_second[int(at)][ok is True] += 1
+    for second, (bad, good) in sorted(by_second.items()):
+        if bad:
+            print(f"{second:>4} s: {good:>4} ok,"
+                  f" {bad:>4} failed")
+
+
 async def main(args):
     results = defaultdict(list)
     limits = httpx2.Limits(max_connections=args.users)
@@ -86,11 +101,14 @@ async def main(args):
         base_url=args.url, timeout=2.0, limits=limits,
     ) as client:
         deadline = time.monotonic() + args.seconds
+        began = time.perf_counter()
         await asyncio.gather(*(
-            user(client, deadline, results)
+            user(client, deadline, results, began)
             for _ in range(args.users)
         ))
     report(results, args.seconds)
+    if args.timeline:
+        timeline(results)
 
 
 if __name__ == "__main__":
@@ -100,4 +118,5 @@ if __name__ == "__main__":
     )
     ap.add_argument("--users", type=int, default=1)
     ap.add_argument("--seconds", type=int, default=20)
+    ap.add_argument("--timeline", action="store_true")
     asyncio.run(main(ap.parse_args()))
